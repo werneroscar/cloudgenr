@@ -14,10 +14,25 @@ resource "aws_internet_gateway" "igw" {
   })
 }
 
+resource "aws_eip" "nat_eip" {
+  vpc        = true
+  depends_on = [aws_internet_gateway.igw]
+}
+
+resource "aws_nat_gateway" "gw" {
+  allocation_id = aws_eip.nat_eip.id
+  subnet_id     = aws_subnet.public_subnet_lb.id
+
+  tags = merge(local.common_tags, {
+    description = "NAT Gateway for VPC"
+  })
+}
+
 resource "aws_subnet" "public_subnet_lb" {
   cidr_block              = var.vpc_public_subnet_lb_cidr_block
   vpc_id                  = aws_vpc.vpc.id
   map_public_ip_on_launch = true
+  # availability_zone = "us-east-1a"
 
   tags = merge(local.common_tags, {
     description = "Public Subnet for LoadBalancer"
@@ -45,53 +60,52 @@ resource "aws_subnet" "private_subnet_rds" {
 }
 
 # ROUTE TABLES #
-resource "aws_route_table" "public-subnet-rtb" {
+resource "aws_route_table" "public_subnet_rtb" {
   vpc_id = aws_vpc.vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
-  }
 
   tags = merge(local.common_tags, {
     description = "Route table for LoadBalancer Public Subnet"
   })
 }
 
+resource "aws_route" "public_internet_gateway_route" {
+  route_table_id         = aws_route_table.public_subnet_rtb.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.igw.id
+}
+
 resource "aws_route_table" "private-subnet-asg-rtb" {
   vpc_id = aws_vpc.vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-  }
-  route {
-    cidr_block = var.vpc_private_subnet_asg_cidr_block
-  }
 
   tags = merge(local.common_tags, {
     description = "Route table for Private Subnetfor ASG"
   })
 }
 
+# resource "aws_route" "private_internet_gateway" {
+#   route_table_id         = aws_route_table.public_subnet_rtb.id
+#   destination_cidr_block = "0.0.0.0/0"
+#   nat_gateway_id = aws_nat_gateway.gw.id
+# }
+
 resource "aws_route_table" "private_subnet_rds_rtb" {
   vpc_id = aws_vpc.vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-  }
-  route {
-    cidr_block = var.vpc_private_subnet_asg_cidr_block
-  }
 
   tags = merge(local.common_tags, {
     description = "Route table for LoadBalancer Private Subnet for RDS"
   })
 }
 
+resource "aws_route" "public_internet_gateway" {
+  route_table_id         = aws_route_table.public_subnet_rtb.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.igw.id
+}
+
 # ROUTE TABLE ASSOCUATIONS #
 resource "aws_route_table_association" "public-subnet-rta" {
   subnet_id      = aws_subnet.public_subnet_lb.id
-  route_table_id = aws_route_table.public-subnet-rtb.id
+  route_table_id = aws_route_table.public_subnet_rtb.id
 }
 
 resource "aws_route_table_association" "private-subnet-asg-rta" {
@@ -109,10 +123,10 @@ resource "aws_lb" "asg_lb" {
   name                             = "asg-lb"
   internal                         = false
   load_balancer_type               = "network"
-  subnets                          = [var.vpc_private_subnet_asg_cidr_block]
+  subnets                          = [aws_subnet.public_subnet_lb.id]
   enable_cross_zone_load_balancing = true
 
-  enable_deletion_protection = true
+  enable_deletion_protection = false
 
   tags = merge(local.common_tags, {
     description = "LoadBalancer for ASG"
@@ -184,11 +198,11 @@ resource "aws_security_group" "nginx-sg" {
 }
 
 ## Subnet Group for RDS DB ##
-resource "aws_db_subnet_group" "asg-db-sg" {
-  name       = "asg-db-sg"
-  subnet_ids = [aws_subnet.private_subnet_rds.id]
+# resource "aws_db_subnet_group" "asg-db-sg" {
+#   name       = "asg-db-sg"
+#   subnet_ids = [aws_subnet.private_subnet_rds.id, aws_subnet.private_subnet_asg.id]
 
-  tags = merge(local.common_tags, {
-    description = "Subnet Group for RDS DB"
-  })
-}
+#   tags = merge(local.common_tags, {
+#     description = "Subnet Group for RDS DB"
+#   })
+# }

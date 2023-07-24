@@ -24,25 +24,25 @@ variable "enable_dns_hostnames" {
 variable "vpc_cidr_block" {
   type        = string
   description = "Base CIDR Block for VPC"
-  default     = "10.0.0.0/16"
+  default     = "11.0.0.0/16"
 }
 
 variable "vpc_public_subnet_lb_cidr_block" {
   type        = string
   description = "CIDR Block for Subnet 1 in VPC"
-  default     = "10.0.0.0/24"
+  default     = "11.0.0.0/24"
 }
 
 variable "vpc_private_subnet_asg_cidr_block" {
   type        = string
   description = "CIDR Block for Subnet 1 in VPC"
-  default     = "10.0.1.0/24"
+  default     = "11.0.1.0/24"
 }
 
 variable "vpc_private_subnet_rds_cidr_block" {
   type        = string
-  description = "CIDR Block for Subnet 1 in VPC"
-  default     = "10.0.1.0/24"
+  description = "CIDR Block for Subnet 2 in VPC"
+  default     = "11.0.2.0/24"
 }
 
 
